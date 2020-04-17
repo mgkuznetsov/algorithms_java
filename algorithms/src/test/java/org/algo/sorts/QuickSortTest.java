@@ -1,4 +1,4 @@
-package org.algo;
+package org.algo.sorts;
 
 import static org.junit.Assert.assertTrue;
 
@@ -52,4 +52,6 @@ public class QuickSortTest
         final int[] expectedArr1 = { 1, 1, 2, 2, 3, 4, 4, 5, 7, 8 };
         assertTrue(Arrays.equals(arr1, expectedArr1));
     }
+
+
 }

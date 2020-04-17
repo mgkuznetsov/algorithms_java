@@ -1,4 +1,4 @@
-package org.algo;
+package org.algo.sorts;
 
 public class Quicksort {
 

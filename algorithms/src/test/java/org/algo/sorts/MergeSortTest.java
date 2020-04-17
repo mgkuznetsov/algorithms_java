@@ -1,4 +1,4 @@
-package org.algo;
+package org.algo.sorts;
 
 import static org.junit.Assert.assertTrue;
 
