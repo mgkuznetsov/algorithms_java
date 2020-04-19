@@ -12,6 +12,10 @@ public class HashMapSeparateChaining<K, V> implements HashMapInterface<K, V>
     //NOTE: This is what we have to do for generics
     Node<K, V>[] buckets = (Node<K,V>[])new Node[INNITIAL_BUCKET_SIZE];
 
+    public int getNumBuckets() {
+        return buckets.length;
+    }
+
     public V get(Object key) {
 
         int bucketIndex = getBucketIndex(key);
@@ -22,15 +26,13 @@ public class HashMapSeparateChaining<K, V> implements HashMapInterface<K, V>
         }
 
         // Go through all the node in the bucket and search for the key
-        do {
+        while(node != null) {
             if(node.key.equals(key)) {
                 return node.value;
             }
 
             node = node.next;
-        } while(node.hasNext());
-
-
+        }
 
         return null; // Not found in any of the nodes in bucket
     }
@@ -45,26 +47,30 @@ public class HashMapSeparateChaining<K, V> implements HashMapInterface<K, V>
         if (node == null) {
             buckets[bucketIndex] = new Node<K, V>(key, value, null);
             numBucketsUsed++; //If a new bucket is used, update number
-            rehash();
+            rehash(true);
             return null;
         }
 
         // Go through all the node in the bucket and search for the key
         // If key is found, then replace node with new value
-        do {
+        Node<K, V> prevNode = null; //Pointer to previous node
+        while(node != null) {
             if(node.getKey().equals(key)) {
                 V oldVal = node.getValue();
-                node = new Node<K, V>(key, value, node.getNext());
+                node.setValue(value);
                 return oldVal;
             }
 
-            node = node.next;
-        } while(node.hasNext());
+            // Move to next node
+            prevNode = node;
+            node = node.getNext();
+            
+        }
 
         // If we are here, it means that there is no element with key in bucket
         // We insert at the end of the last node in the bucket
-        node.setNext(new Node<K, V>(key, value, null));
-        rehash();
+        // prevNode is last node
+        prevNode.setNext(new Node<K, V>(key, value, null));
         return null;
     }
 
@@ -73,32 +79,37 @@ public class HashMapSeparateChaining<K, V> implements HashMapInterface<K, V>
 
         Node<K, V> node = buckets[bucketIndex];
 
-        // If bucket is empty, return null
-        if (node == null) {
-            return null;
-        }
-
-        // If the first node in the bucket has the value, then remove the node
-        if(node.key.equals(key)) {
-            V value = node.getValue();
-            node = node.getNext();
-            rehash();
-            return value;
-        }
-
-
-
         // Go through all the node in the bucket and search for the key
         // If key is found, then remove the node
-        do {
-            if(node.getNext().getKey().equals(key)) {
+        Node<K, V> prevNode = null; //Pointer to previous node
+
+        while(node != null) {
+            if(node.getKey().equals(key)) {
                 V value = node.getValue();
-                node.setNext(node.getNext());
+                
+                if(!node.hasNext()) {
+                    if(prevNode == null) {
+                        buckets[bucketIndex] = null;
+                        numBucketsUsed = 0;
+                        rehash(false); // If it's the only node in the bucket, then we should resize bucket
+                    } else {
+                        prevNode.setNext(null); // If it's the last node
+                    }
+                } else {
+                    if(prevNode == null) {
+                        buckets[bucketIndex] = node.getNext(); // It's the first node
+                    } else {
+                       prevNode.setNext(node.getNext()); // Node is in the middle 
+                    }
+                }
+
                 return value;
             }
 
+            // Move to the next node
+            prevNode = node;
             node = node.next;
-        } while(node.hasNext());
+        }
 
         // If we are here, it means that there is no element with key in bucket
         // We return null since we didn't find the element
@@ -109,16 +120,27 @@ public class HashMapSeparateChaining<K, V> implements HashMapInterface<K, V>
         return key.hashCode() % buckets.length;
     }
 
-    private void rehash() {
-        if(numBucketsUsed/buckets.length > LOAD_FACTOR) {
-            Node<K, V>[] originalBuckets = this.buckets; // Make temporary copy of current buckets
+    // increaseSize = true when we're adding to the map
+    // increaseSize = false when we're removing from the map
+    private void rehash(boolean increaseSize) {
+        float bucketLoad = (float)numBucketsUsed/buckets.length;
+        Node<K, V>[] originalBuckets = buckets;
+        if(numBucketsUsed > 0 && (bucketLoad > LOAD_FACTOR) && increaseSize) {
+            this.buckets = (Node<K,V>[])new Node[originalBuckets.length*2]; //Create a new array of buckets with twice the size
+        } else if (numBucketsUsed > 0 && bucketLoad < LOAD_FACTOR && !increaseSize && this.buckets.length > INNITIAL_BUCKET_SIZE) {
+            this.buckets = (Node<K,V>[])new Node[originalBuckets.length/2]; //Create a new array of buckets with twice the size
+        } else {
+            return; //No need to rehash
+        }
+            
+        // Rehash
+        numBucketsUsed = 0; //Reset value
 
-            //Create a new array of buckets with twice the size
-            this.buckets = (Node<K,V>[])new Node[originalBuckets.length*2];
-            numBucketsUsed = 0; //Reset value
-
-            for(Node<K, V> n : originalBuckets) {
-                put(n.key, n.value); // Insert item into new buckets
+        for(Node<K, V> n : originalBuckets) {
+            // Insert item into new buckets
+            while(n!=null) {
+                put(n.key, n.value); 
+                n = n.next;
             }
         }
 
@@ -144,6 +166,10 @@ public class HashMapSeparateChaining<K, V> implements HashMapInterface<K, V>
     
         public V getValue() {
             return value;
+        }
+
+        public void setValue(V value) {
+            this.value = value;
         }
     
         public Node<K, V> getNext() {
